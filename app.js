@@ -47,6 +47,7 @@ const AUTH_KEY = "isivolt_v3_auth";
 const SESSION_KEY = "isivolt_v3_session";
 const TECH_KEY = "isivolt_v3_tech";
 const FREE_KEY = "isivolt_v3_free_access";
+const SOUND_KEY = "isivolt_v3_sound";
 
 
 function isFreeAccessEnabled() { return localStorage.getItem(FREE_KEY) === "1"; }
@@ -61,6 +62,18 @@ function getTech() { return localStorage.getItem(TECH_KEY) || ""; }
 function setTech(t) { localStorage.setItem(TECH_KEY, t); }
 
 // ========================== SONIDOS ==========================
+function getSoundCfg() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem(SOUND_KEY) || "{}");
+    return { enabled: cfg.enabled !== false, volume: Math.min(1, Math.max(0.1, Number(cfg.volume) || 0.7)) };
+  } catch {
+    return { enabled: true, volume: 0.7 };
+  }
+}
+function saveSoundCfg(cfg) {
+  localStorage.setItem(SOUND_KEY, JSON.stringify({ enabled: !!cfg.enabled, volume: Math.min(1, Math.max(0.1, Number(cfg.volume) || 0.7)) }));
+}
+
 let _ctx = null;
 function getCtx() {
   if (!_ctx || _ctx.state === "closed") {
@@ -70,10 +83,12 @@ function getCtx() {
 }
 function beep(freq, dur, gain = 0.08, type = "sine") {
   try {
+    const cfg = getSoundCfg();
+    if (!cfg.enabled) return;
     const ctx = getCtx(); if (!ctx) return;
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, ctx.currentTime);
-    g.gain.setValueAtTime(gain, ctx.currentTime);
+    g.gain.setValueAtTime(Math.max(0.001, Number(gain) * cfg.volume), ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur / 1000);
     o.connect(g); g.connect(ctx.destination);
     o.start(); o.stop(ctx.currentTime + dur / 1000 + 0.02);
@@ -98,7 +113,7 @@ function playAlarm() {
   playNext();
   alarmInterval = setInterval(playNext, 220);
   // vibrar
-  try { navigator.vibrate?.([200, 100, 200, 100, 400]); } catch {}
+  try { if (getSoundCfg().enabled) navigator.vibrate?.([200, 100, 200, 100, 400]); } catch {}
 }
 function stopAlarm() {
   if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
@@ -190,7 +205,7 @@ function initLogin() {
     } else {
       loginErr.classList.add("show");
       soundWarn();
-      try { navigator.vibrate?.([80,40,80]); } catch {}
+      try { if (getSoundCfg().enabled) navigator.vibrate?.([80,40,80]); } catch {}
       $("loginPass").value = "";
       $("loginPass").focus();
     }
@@ -251,6 +266,9 @@ $("btnSettings")?.addEventListener("click", () => {
   $("setUser").value = a.u || "paco";
   $("setCloroLejia").value = c.pctLejia || 5;
   $("setTargetPPM").value = c.ppm || 50;
+  const snd = getSoundCfg();
+  $("setSoundEnabled").checked = snd.enabled;
+  $("setSoundVolume").value = snd.volume;
   $("modalSettings").classList.add("open");
 });
 $("btnCloseSettings")?.addEventListener("click", () => $("modalSettings").classList.remove("open"));
@@ -272,6 +290,21 @@ $("btnSaveCalc")?.addEventListener("click", () => {
   toast("Configuración guardada ✅", "ok");
   soundSave();
   updateDosisCalc();
+});
+
+$("btnSaveSound")?.addEventListener("click", () => {
+  const enabled = $("setSoundEnabled").checked;
+  const volume = Number($("setSoundVolume").value) || 0.7;
+  saveSoundCfg({ enabled, volume });
+  toast("Audio actualizado ✅", "ok");
+  soundSave();
+});
+
+$("btnTestSound")?.addEventListener("click", () => {
+  const enabled = $("setSoundEnabled").checked;
+  const volume = Number($("setSoundVolume").value) || 0.7;
+  saveSoundCfg({ enabled, volume });
+  soundOK();
 });
 
 $("btnLogout")?.addEventListener("click", () => {
@@ -1104,7 +1137,7 @@ function checkRangos(ph, temp, cloroL, cloroT, turb) {
     txt.textContent = alerts.join(" · ");
     div.classList.remove("hidden");
     soundWarn();
-    try { navigator.vibrate?.([100,50,100]); } catch {}
+    try { if (getSoundCfg().enabled) navigator.vibrate?.([100,50,100]); } catch {}
   } else { div?.classList.add("hidden"); }
 }
 
