@@ -21,6 +21,27 @@ const monthStr = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const fmtTime = ms => { const s = Math.max(0, Math.ceil(ms/1000)); return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; };
 const normalizeCode = s => { const c = String(s||"").trim().replace(/[^a-zA-Z0-9]/g,""); return c.length <= 5 ? c.toUpperCase() : c.slice(-5).toUpperCase(); };
 
+function setRecirTimerVisualState(state = "normal") {
+  const timerCard = $("cardCronometro");
+  const tankWrap = document.querySelector("#cardCronometro .tank-wrap");
+  const progressFill = $("timerProgress");
+  const states = ["timer-urgent", "timer-critical"];
+
+  timerCard?.classList.remove(...states);
+  tankWrap?.classList.remove(...states);
+  progressFill?.classList.remove(...states);
+
+  if (state === "urgent") {
+    timerCard?.classList.add("timer-urgent");
+    tankWrap?.classList.add("timer-urgent");
+    progressFill?.classList.add("timer-urgent");
+  } else if (state === "critical") {
+    timerCard?.classList.add("timer-critical");
+    tankWrap?.classList.add("timer-critical");
+    progressFill?.classList.add("timer-critical");
+  }
+}
+
 // ========================== AUTH ==========================
 const AUTH_KEY = "isivolt_v3_auth";
 const SESSION_KEY = "isivolt_v3_session";
@@ -292,7 +313,8 @@ async function resetDay() {
     $("tankWater").style.height = "0%";
     $("tankPct").textContent = "0%";
     $("timerProgress").style.width = "0%";
-  $("timerMeta").textContent = "Progreso: 0% · 00:00 / 00:00";
+    setRecirTimerVisualState("normal");
+    $("timerMeta").textContent = "Progreso: 0% · 00:00 / 00:00";
     $("btnPauseTimer").classList.add("hidden");
     $("btnResumeTimer").classList.add("hidden");
     $("btnStartTimer").classList.remove("hidden");
@@ -577,6 +599,7 @@ function startRecirFromQueue(idx) {
   $("tankWater").style.height = "0%";
   $("tankPct").textContent = "0%";
   $("timerProgress").style.width = "0%";
+  setRecirTimerVisualState("normal");
   $("miniLeft").textContent = fmtTime(recirTimer.durationMs);
   $("timerMeta").textContent = `Transcurrido ${fmtTime(0)} · Restante ${fmtTime(recirTimer.durationMs)} · Progreso 0%`;
   $("sealResult").className = "hidden";
@@ -660,6 +683,11 @@ function recirTimerTick() {
   recirTimer.elapsedMs = elapsed;
   const left = Math.max(0, recirTimer.durationMs - elapsed);
   const pct = recirTimer.durationMs > 0 ? Math.min(1, elapsed / recirTimer.durationMs) : 1;
+  const leftRatio = recirTimer.durationMs > 0 ? left / recirTimer.durationMs : 0;
+
+  if (leftRatio <= 0.15) setRecirTimerVisualState("critical");
+  else if (leftRatio <= 0.35) setRecirTimerVisualState("urgent");
+  else setRecirTimerVisualState("normal");
 
   $("timerDisplay").textContent = fmtTime(left);
   $("tankWater").style.height = `${Math.round(pct*100)}%`;
@@ -679,6 +707,7 @@ function recirTimerTick() {
     $("tankWater").style.height = "100%";
     $("tankPct").textContent = "100%";
     $("timerProgress").style.width = "100%";
+    setRecirTimerVisualState("normal");
     $("miniTimer").classList.remove("show");
 
     // Mostrar alarma
@@ -739,6 +768,7 @@ async function finishRecir(result, fromAlarm = false) {
   $("tankWater").style.height = "0%";
   $("tankPct").textContent = "0%";
   $("timerProgress").style.width = "0%";
+  setRecirTimerVisualState("normal");
   $("timerMeta").textContent = "Transcurrido 00:00 · Restante 00:00 · Progreso 0%";
   $("puntoCode").value = ""; $("recirNota").value = "";
 
