@@ -941,14 +941,16 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 $("btnAddAnalisis")?.addEventListener("click", async () => {
-  const code = normalizeCode($("analisisPuntoCode").value);
-  if (!code) return toast("Introduce un código de punto.", "warn");
+  const rawCode = $("analisisPuntoCode").value;
+  const code = normalizeCode(rawCode);
+  if (!code || !/^\d{5}$/.test(code)) return toast("Introduce un código de 5 dígitos.", "warn");
   const mes = $("analisisMes").value || monthStr();
   const planta = $("analisisPlanta").value || "Baja";
+  const elemento = $("analisisElemento")?.value || "Ducha";
   const tipo = $("analisisTipo").value || "ACS";
   const tech = getTech();
 
-  await dbAddAnalisis({ tech, month: mes, ts: Date.now(), code, planta, tipo, status: "pendiente", nota: "" });
+  await dbAddAnalisis({ tech, month: mes, ts: Date.now(), code, planta, elemento, tipo, status: "pendiente", nota: "" });
   soundSave(); toast(`Punto ${code} añadido ✅`, "ok", "Análisis");
   $("analisisPuntoCode").value = "";
   await refreshAnalisisList();
@@ -971,17 +973,59 @@ async function handleAnalisisFile(file) {
   const mes = $("analisisMes").value || monthStr();
   const tech = getTech();
   let added = 0;
-  for (const line of lines) {
-    const parts = line.split(/[,;\t]/);
-    const code = normalizeCode(parts[0] || "");
-    if (!code) continue;
-    const planta = (parts[1] || "Baja").trim() || "Baja";
-    const tipo = (parts[2] || "ACS").trim().toUpperCase().startsWith("AF") ? "AFCH" : "ACS";
-    await dbAddAnalisis({ tech, month: mes, ts: Date.now(), code, planta, tipo, status: "pendiente", nota: "" });
+
+  const findIdx = (headers, aliases) => {
+    for (let i = 0; i < headers.length; i++) {
+      const h = String(headers[i] || "").toLowerCase().trim();
+      if (aliases.some(a => h.includes(a))) return i;
+    }
+    return -1;
+  };
+
+  const toPlanta = (value) => {
+    const txt = String(value || "").trim();
+    if (!txt) return "Baja";
+    if (/baja/i.test(txt)) return "Baja";
+    if (/s[oó]tano|\-1/.test(txt.toLowerCase())) return "-1";
+    const m = txt.match(/-?\d+/);
+    return m ? m[0] : txt;
+  };
+
+  const toElemento = (value) => {
+    const txt = String(value || "").toLowerCase();
+    if (txt.includes("ducha")) return "Ducha";
+    if (txt.includes("grifo") || txt.includes("lavabo") || txt.includes("lavamanos")) return "Grifo";
+    return "Otro";
+  };
+
+  const toTipo = (value) => String(value || "").trim().toUpperCase().startsWith("AF") ? "AFCH" : "ACS";
+  const pickCode = (value) => {
+    const m = String(value || "").match(/\d{5}/);
+    return m ? m[0] : normalizeCode(value || "");
+  };
+
+  const headers = lines[0].split(/[,;	]/).map(v => v.trim());
+  const codeIdx = findIdx(headers, ["id punto", "codigo", "código", "id"]);
+  const plantaIdx = findIdx(headers, ["planta"]);
+  const elementoIdx = findIdx(headers, ["elemento", "tipo"]);
+  const tipoIdx = findIdx(headers, ["acs", "afs", "afch", "agua"]);
+  const hasHeader = codeIdx !== -1;
+
+  for (const [idx, line] of lines.entries()) {
+    if (hasHeader && idx === 0) continue;
+    const parts = line.split(/[,;	]/);
+    const code = pickCode(hasHeader ? parts[codeIdx] : parts[0]);
+    if (!code || !/^\d{5}$/.test(code)) continue;
+
+    const planta = toPlanta(hasHeader && plantaIdx !== -1 ? parts[plantaIdx] : parts[1]);
+    const elemento = toElemento(hasHeader && elementoIdx !== -1 ? parts[elementoIdx] : parts[2]);
+    const tipo = toTipo(hasHeader && tipoIdx !== -1 ? parts[tipoIdx] : parts[3]);
+
+    await dbAddAnalisis({ tech, month: mes, ts: Date.now(), code, planta, elemento, tipo, status: "pendiente", nota: "" });
     added++;
   }
   if (added) { toast(`${added} puntos importados ✅`, "ok", "Análisis"); await refreshAnalisisList(); }
-  else toast("No se encontraron códigos en el archivo.", "warn");
+  else toast("No se encontraron códigos de 5 dígitos en el archivo.", "warn");
 }
 
 async function refreshAnalisisList() {
@@ -1034,9 +1078,11 @@ async function refreshAnalisisList() {
       const badge = it.status==="hecho"?"badge-ok":it.status==="incidencia"?"badge-danger":"badge-gray";
       const badgeTxt = it.status==="hecho"?"✅ Tomada":it.status==="incidencia"?"⚠ Incid.":"⏳ Pend.";
       const water = it.tipo==="ACS"?"🔥":"❄️";
+      const elementoIcon = it.elemento === "Ducha" ? "🚿" : it.elemento === "Grifo" ? "🚰" : "🔧";
       row.innerHTML = `
         <div class="list-item-left">
           <div class="list-item-code">${water} ${escH(it.code)}</div>
+          <div class="list-item-meta">${elementoIcon} ${escH(it.elemento || "Sin elemento")} · Planta ${escH(it.planta || "—")} · ${it.tipo || "ACS"}</div>
           <div class="list-item-meta">${it.nota ? escH(it.nota.slice(0,50)) : "Sin nota"}</div>
         </div>
         <div class="list-item-actions">
@@ -1086,8 +1132,14 @@ $("btnExportAnalisis")?.addEventListener("click", async () => {
   const items = await dbGetAnalisisByMonth(tech, mes);
   if (!items.length) return toast("No hay datos para exportar.", "warn");
   exportListToExcel(items.map(it => ({
-    Mes: it.month, Codigo: it.code, Planta: it.planta, Tipo: it.tipo,
-    Estado: it.status, Nota: it.nota||"", Fecha: it.ts ? new Date(it.ts).toLocaleDateString() : ""
+    Mes: it.month,
+    Codigo5Digitos: it.code,
+    Planta: it.planta,
+    Elemento: it.elemento || "",
+    TipoAgua: it.tipo,
+    Estado: it.status,
+    Nota: it.nota||"",
+    Fecha: it.ts ? new Date(it.ts).toLocaleDateString() : ""
   })), `analisis_${mes}_${tech}.xls`);
 });
 
