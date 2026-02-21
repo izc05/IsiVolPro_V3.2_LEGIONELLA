@@ -103,6 +103,16 @@
         <label class="label">Observación (opcional)</label>
         <textarea id="recirNota" class="input" rows="2" placeholder="Ej: baño sin retorno, pendiente revisión..."></textarea>
       </div>
+
+      <div class="mt14">
+        <div class="row sb" style="margin-bottom:8px">
+          <div class="label" style="margin:0">OT pendientes para cronómetro</div>
+          <span id="recirQueueCount" class="badge badge-gray">0 pendientes</span>
+        </div>
+        <div id="recirQueue" class="list">
+          <div class="empty-state"><div class="empty-icon">🗂️</div><div class="empty-text">No hay OT pendientes.</div></div>
+        </div>
+      </div>
     </div>
 
     <!-- Cronómetro -->
@@ -130,9 +140,10 @@
       <div class="progress-bar" style="margin-bottom:14px">
         <div class="progress-fill" id="timerProgress" style="width:0%"></div>
       </div>
+      <div id="timerMeta" class="small muted" style="margin-bottom:12px">Progreso: 0% · 00:00 / 00:00</div>
 
       <div class="btn-grid btn-grid-3" style="gap:8px">
-        <button id="btnStartTimer" class="btn btn-primary btn-lg">▶ Iniciar</button>
+        <button id="btnStartTimer" class="btn btn-primary btn-lg">▶ Iniciar siguiente</button>
         <button id="btnPauseTimer" class="btn btn-warn btn-lg hidden">⏸ Pausar</button>
         <button id="btnResumeTimer" class="btn btn-success btn-lg hidden">▶ Reanudar</button>
         <button id="btnFinishOK" class="btn btn-success">✅ Finalizar OK</button>
@@ -244,6 +255,10 @@
       <div class="row" style="gap:8px;margin-bottom:10px">
         <input id="medidaCodigo" class="input" placeholder="Punto / código (manual o QR)" style="flex:2"/>
         <button id="btnScanQRMedidas" class="btn btn-primary">📷 QR</button>
+        <select id="medidaTipo" class="input" style="width:auto">
+          <option value="ACS">🔥 Agua caliente</option>
+          <option value="AFCH">❄️ Agua fría</option>
+        </select>
         <input id="medidaFecha" class="input" type="date" style="flex:1"/>
       </div>
 
@@ -335,7 +350,7 @@
         </div>
         <div style="flex:1">
           <label class="label">Tiempo (min)</label>
-          <input id="purgaMinutos" class="input" type="number" min="1" max="60" value="5"/>
+          <input id="purgaMinutos" class="input" type="number" min="1" value="5"/>
         </div>
       </div>
 
