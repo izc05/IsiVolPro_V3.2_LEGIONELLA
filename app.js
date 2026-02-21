@@ -422,6 +422,86 @@ async function qrLoop() {
 }
 
 // ==========================
+// MÓDULO 5: INCIDENCIAS
+// ==========================
+$("btnSaveInc")?.addEventListener("click", async () => {
+  const codigo = normalizeCode($("incCodigo")?.value || "");
+  const nota = $("incNota")?.value?.trim() || "";
+  const files = Array.from($("incFotos")?.files || []);
+
+  if (!codigo) return toast("Introduce ubicación o código de la incidencia.", "warn");
+  if (!nota && !files.length) return toast("Añade una nota o al menos una foto.", "warn");
+
+  const fotos = [];
+  for (const file of files) {
+    try {
+      fotos.push(await readFileAsDataURL(file));
+    } catch {
+      return toast("No se pudo leer una de las fotos seleccionadas.", "err");
+    }
+  }
+
+  await dbAddIncidencia({
+    tech: getTech(),
+    date: todayStr(),
+    ts: Date.now(),
+    codigo,
+    nota,
+    fotos
+  });
+
+  if ($("incCodigo")) $("incCodigo").value = "";
+  if ($("incNota")) $("incNota").value = "";
+  if ($("incFotos")) $("incFotos").value = "";
+
+  soundSave();
+  toast(`Incidencia ${codigo} guardada ✅`, "ok", "Incidencias");
+  await refreshIncList();
+});
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("read error"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function refreshIncList() {
+  const items = await dbGetIncidencias(getTech(), todayStr());
+  const list = $("incList");
+  if (!list) return;
+
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛠️</div><div class="empty-text">Sin incidencias hoy.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  for (const it of items) {
+    const el = document.createElement("div");
+    el.className = "list-item";
+    const imgCount = Array.isArray(it.fotos) ? it.fotos.length : 0;
+    const thumbs = imgCount
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${it.fotos
+          .slice(0, 3)
+          .map((src, idx) => `<img src="${escH(src)}" alt="Foto incidencia ${idx + 1}" style="width:62px;height:62px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)"/>`)
+          .join("")}${imgCount > 3 ? `<span class="badge badge-gray">+${imgCount - 3}</span>` : ""}</div>`
+      : "";
+
+    el.innerHTML = `
+      <div class="list-item-left" style="width:100%">
+        <div class="list-item-code">${escH(it.codigo || "—")}</div>
+        <div class="list-item-meta">${new Date(it.ts).toLocaleTimeString()} · ${imgCount} foto(s)</div>
+        <div class="list-item-meta" style="margin-top:4px">${escH(it.nota || "Sin anotación")}</div>
+        ${thumbs}
+      </div>`;
+    list.appendChild(el);
+  }
+}
+
+// ==========================
 // MÓDULO 1: RECIRCULACIÓN
 // ==========================
 let recirTimer = {
