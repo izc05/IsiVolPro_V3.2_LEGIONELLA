@@ -447,6 +447,39 @@
     </div>
   </section>
 
+
+
+  <section class="screen" id="screenUbicacionesQR">
+    <div class="sec-header">
+      <div class="sec-title">🏷️ Ubicaciones · Códigos QR</div>
+      <div class="sec-sub">Crea, guarda, imprime y descarga QR por ubicación</div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">➕ Nueva ubicación</div>
+      <div class="row" style="gap:8px;margin-bottom:10px">
+        <input id="qrUbCode" class="input" placeholder="Código (ej: HAB-201)" style="flex:1;min-width:180px" maxlength="40"/>
+        <input id="qrUbName" class="input" placeholder="Nombre ubicación (ej: Habitación 201)" style="flex:2;min-width:220px" maxlength="120"/>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button id="btnAddUbicacionQR" class="btn btn-primary">✅ Guardar ubicación</button>
+        <button id="btnPrintAllQR" class="btn">🖨️ Imprimir QRs</button>
+        <button id="btnDownloadAllQR" class="btn">⬇️ Descargar QRs</button>
+        <button id="btnExportUbicaciones" class="btn btn-success">📤 Excel ubicaciones</button>
+      </div>
+      <div class="muted small" style="margin-top:8px">Los QR se guardan en este dispositivo para reutilizarlos.</div>
+    </div>
+
+    <div class="card">
+      <div class="row sb" style="margin-bottom:12px">
+        <div class="card-title">📍 Ubicaciones guardadas</div>
+        <span id="qrUbCount" class="badge badge-blue">0 ubicaciones</span>
+      </div>
+      <div id="qrUbList" class="list">
+        <div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">Aún no hay ubicaciones guardadas.</div></div>
+      </div>
+    </div>
+  </section>
 <nav class="bottom-nav">
     <button class="nav-btn active" data-screen="screenRecirculacion">
       <span class="nav-icon">🔵</span>Recirculación
@@ -461,7 +494,8 @@
       <span class="nav-icon">🚰</span>Purga
     </button>
   
-    <button class="nav-btn" data-screen="screenIncidencias"><div class="nav-icon">🛠️</div><div>Incidencias</div></button></nav>
+    <button class="nav-btn" data-screen="screenIncidencias"><div class="nav-icon">🛠️</div><div>Incidencias</div></button>
+    <button class="nav-btn" data-screen="screenUbicacionesQR"><div class="nav-icon">🏷️</div><div>QR</div></button></nav>
 
 </div><!-- /app-wrap -->
 

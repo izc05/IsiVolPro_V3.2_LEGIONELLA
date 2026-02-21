@@ -160,6 +160,7 @@ function initNav() {
       if (screen === "screenMedidas") refreshMedidasList();
       if (screen === "screenPurga") refreshPurgaList();
       if (screen === "screenIncidencias") refreshIncList();
+      if (screen === "screenUbicacionesQR") refreshUbicacionesQR();
     });
   });
 }
@@ -938,6 +939,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if ($("analisisMes")) $("analisisMes").value = monthStr();
   if ($("medidaFecha")) $("medidaFecha").value = todayStr();
   if ($("medidaFiltroFecha")) $("medidaFiltroFecha").value = todayStr();
+  refreshUbicacionesQR();
 });
 
 $("btnAddAnalisis")?.addEventListener("click", async () => {
@@ -1452,6 +1454,160 @@ function exportListToExcel(rows, filename) {
   toast("Excel descargado ✅", "ok");
 }
 
+
+
+// ==========================
+// MÓDULO 6: UBICACIONES QR
+// ==========================
+const UBICACIONES_QR_KEY = "isivolt_v3_ubicaciones_qr";
+
+function getUbicacionesQR() {
+  try {
+    const items = JSON.parse(localStorage.getItem(UBICACIONES_QR_KEY) || "[]");
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUbicacionesQR(items) {
+  localStorage.setItem(UBICACIONES_QR_KEY, JSON.stringify(items));
+}
+
+function buildQRUrl(value) {
+  return `https://quickchart.io/qr?size=320&margin=1&text=${encodeURIComponent(value)}`;
+}
+
+function sanitizeUbCode(value) {
+  return String(value || "").trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9\-_]/g, "").toUpperCase();
+}
+
+async function refreshUbicacionesQR() {
+  const list = $("qrUbList");
+  const count = $("qrUbCount");
+  if (!list || !count) return;
+
+  const items = getUbicacionesQR().sort((a,b) => (a.code || "").localeCompare(b.code || ""));
+  count.textContent = `${items.length} ubicaciones`;
+
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">Aún no hay ubicaciones guardadas.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  for (const it of items) {
+    const qrText = `${it.code} | ${it.name}`;
+    const row = document.createElement("div");
+    row.className = "list-item qr-item";
+    row.innerHTML = `
+      <div class="list-item-left" style="flex:1">
+        <div class="list-item-code">${escH(it.code)}</div>
+        <div class="list-item-meta">${escH(it.name)}</div>
+      </div>
+      <img class="qr-thumb" src="${buildQRUrl(qrText)}" alt="QR ${escH(it.code)}" loading="lazy"/>
+      <div class="list-item-actions">
+        <button class="btn btn-sm" data-action="download">⬇️</button>
+        <button class="btn btn-sm btn-danger" data-action="remove">🗑️</button>
+      </div>`;
+
+    row.querySelector('[data-action="download"]')?.addEventListener('click', () => downloadSingleQR(it));
+    row.querySelector('[data-action="remove"]')?.addEventListener('click', () => removeUbicacionQR(it.code));
+    list.appendChild(row);
+  }
+}
+
+function addUbicacionQR() {
+  const code = sanitizeUbCode($("qrUbCode")?.value);
+  const name = String($("qrUbName")?.value || "").trim();
+  if (!code) return toast("Introduce un código de ubicación.", "warn");
+  if (!name) return toast("Introduce el nombre de la ubicación.", "warn");
+
+  const items = getUbicacionesQR();
+  const idx = items.findIndex(i => i.code === code);
+  const entry = { code, name, ts: Date.now() };
+  if (idx >= 0) items[idx] = { ...items[idx], ...entry };
+  else items.push(entry);
+  saveUbicacionesQR(items);
+
+  if ($("qrUbCode")) $("qrUbCode").value = "";
+  if ($("qrUbName")) $("qrUbName").value = "";
+
+  soundSave();
+  toast(`Ubicación ${code} guardada ✅`, "ok", "QR");
+  refreshUbicacionesQR();
+}
+
+function removeUbicacionQR(code) {
+  if (!confirm(`¿Eliminar ubicación ${code}?`)) return;
+  const next = getUbicacionesQR().filter(i => i.code !== code);
+  saveUbicacionesQR(next);
+  refreshUbicacionesQR();
+}
+
+async function downloadSingleQR(it) {
+  const qrText = `${it.code} | ${it.name}`;
+  const fileName = `QR_${it.code}.png`;
+  const url = buildQRUrl(qrText);
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const tmp = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = tmp; a.download = fileName; a.click();
+    setTimeout(() => URL.revokeObjectURL(tmp), 1500);
+  } catch {
+    window.open(url, "_blank", "noopener");
+  }
+}
+
+async function downloadAllQR() {
+  const items = getUbicacionesQR();
+  if (!items.length) return toast("No hay ubicaciones para descargar.", "warn");
+  for (const it of items) await downloadSingleQR(it);
+  toast("Descarga de QRs iniciada ✅", "ok");
+}
+
+function printAllQR() {
+  const items = getUbicacionesQR();
+  if (!items.length) return toast("No hay ubicaciones para imprimir.", "warn");
+  const cards = items.map(it => {
+    const qrText = `${it.code} | ${it.name}`;
+    return `<div style="width:220px;border:1px solid #ddd;padding:10px;border-radius:8px;text-align:center;break-inside:avoid;">
+      <img src="${buildQRUrl(qrText)}" style="width:180px;height:180px;display:block;margin:0 auto 8px"/>
+      <div style="font-weight:700">${escH(it.code)}</div>
+      <div style="font-size:12px;color:#333">${escH(it.name)}</div>
+    </div>`;
+  }).join("");
+
+  const w = window.open("", "_blank", "noopener,noreferrer");
+  if (!w) return toast("El navegador bloqueó la ventana de impresión.", "warn");
+  w.document.write(`<html><head><title>QR Ubicaciones</title></head><body style="font-family:Arial;padding:20px"><h2>QR de ubicaciones</h2><div style="display:flex;gap:12px;flex-wrap:wrap">${cards}</div></body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 450);
+}
+
+function exportUbicacionesExcel() {
+  const items = getUbicacionesQR();
+  if (!items.length) return toast("No hay ubicaciones para exportar.", "warn");
+  const rows = items
+    .sort((a,b) => (a.code || "").localeCompare(b.code || ""))
+    .map(it => ({
+      Codigo: it.code,
+      Ubicacion: it.name,
+      FechaAlta: it.ts ? new Date(it.ts).toLocaleString() : ""
+    }));
+  exportListToExcel(rows, `ubicaciones_qr_${todayStr()}.xls`);
+}
+
+$("btnAddUbicacionQR")?.addEventListener("click", addUbicacionQR);
+$("btnDownloadAllQR")?.addEventListener("click", downloadAllQR);
+$("btnPrintAllQR")?.addEventListener("click", printAllQR);
+$("btnExportUbicaciones")?.addEventListener("click", exportUbicacionesExcel);
+$("qrUbCode")?.addEventListener("keydown", e => { if (e.key === "Enter") addUbicacionQR(); });
+$("qrUbName")?.addEventListener("keydown", e => { if (e.key === "Enter") addUbicacionQR(); });
+
 // ========================== SERVICE WORKER ==========================
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -1467,6 +1623,7 @@ function init() {
   if ($("analisisMes")) $("analisisMes").value = monthStr();
   if ($("medidaFecha")) $("medidaFecha").value = todayStr();
   if ($("medidaFiltroFecha")) $("medidaFiltroFecha").value = todayStr();
+  refreshUbicacionesQR();
 }
 
 init();

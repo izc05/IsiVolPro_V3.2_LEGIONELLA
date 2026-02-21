@@ -230,6 +230,17 @@ textarea.input { resize: vertical; min-height: 80px; }
 .list-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list-item-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 
+
+.qr-item { align-items: center; }
+.qr-thumb {
+  width: 74px;
+  height: 74px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 4px;
+}
+
 /* ===== CRONÓMETRO ===== */
 .timer-card {
   background: linear-gradient(160deg, rgba(0,212,255,.07), rgba(46,196,182,.05));
