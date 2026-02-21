@@ -493,6 +493,12 @@ function startRecirFromQueue(idx) {
   $("timerCode").textContent = item.code;
   $("timerStatus").textContent = "⏱ Activo";
   $("timerStatus").className = "badge badge-blue";
+  $("timerDisplay").textContent = fmtTime(recirTimer.durationMs);
+  $("tankWater").style.height = "0%";
+  $("tankPct").textContent = "0%";
+  $("timerProgress").style.width = "0%";
+  $("miniLeft").textContent = fmtTime(recirTimer.durationMs);
+  $("timerMeta").textContent = `Transcurrido ${fmtTime(0)} · Restante ${fmtTime(recirTimer.durationMs)} · Progreso 0%`;
   $("sealResult").className = "hidden";
   $("btnStartTimer").classList.add("hidden");
   $("btnPauseTimer").classList.remove("hidden");
@@ -529,14 +535,17 @@ $("btnAddPunto")?.addEventListener("click", async () => {
   renderRecirQueue();
 
   toast(`OT ${code} añadida a pendientes ✅`, "ok", "Recirculación");
+  if (recirTimer.running) {
+    toast(`Cronómetro activo: ${recirTimer.code}. La OT ${code} queda en cola.`, "info", "Recirculación");
+  }
   soundSave();
   $("puntoCode").value = "";
-
-  if (!recirTimer.running) startRecirFromQueue(0);
 });
 
 $("btnStartTimer")?.addEventListener("click", () => {
-  toast("Añade un punto con el botón '✅ Añadir'", "info");
+  if (recirTimer.running) return toast("Ya hay un cronómetro activo.", "warn", "Recirculación");
+  if (!recirQueue.length) return toast("No hay OTs pendientes por iniciar.", "info", "Recirculación");
+  startRecirFromQueue(0);
 });
 
 $("btnPauseTimer")?.addEventListener("click", () => {
@@ -575,10 +584,9 @@ function recirTimerTick() {
   $("timerDisplay").textContent = fmtTime(left);
   $("tankWater").style.height = `${Math.round(pct*100)}%`;
   $("tankPct").textContent = `${Math.round(pct*100)}%`;
-  $("tankTime").textContent = fmtTime(left);
   $("timerProgress").style.width = `${Math.round(pct*100)}%`;
   $("miniLeft").textContent = fmtTime(left);
-  $("timerMeta").textContent = `Progreso: ${Math.round(pct*100)}% · ${fmtTime(elapsed)} / ${fmtTime(recirTimer.durationMs)}`;
+  $("timerMeta").textContent = `Transcurrido ${fmtTime(elapsed)} · Restante ${fmtTime(left)} · Progreso ${Math.round(pct*100)}%`;
 
   if (left <= 0) {
     // ¡COMPLETADO!
@@ -651,7 +659,7 @@ async function finishRecir(result, fromAlarm = false) {
   $("tankWater").style.height = "0%";
   $("tankPct").textContent = "0%";
   $("timerProgress").style.width = "0%";
-  $("timerMeta").textContent = "Progreso: 0% · 00:00 / 00:00";
+  $("timerMeta").textContent = "Transcurrido 00:00 · Restante 00:00 · Progreso 0%";
   $("puntoCode").value = ""; $("recirNota").value = "";
 
   const seal = $("sealResult");
