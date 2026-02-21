@@ -205,6 +205,7 @@ async function initAfterLogin() {
   }
   updateTechDisplay();
   refreshRecirList();
+  renderRecirQueue();
   initCalcSettings();
 }
 
@@ -291,6 +292,7 @@ async function resetDay() {
     $("tankWater").style.height = "0%";
     $("tankPct").textContent = "0%";
     $("timerProgress").style.width = "0%";
+  $("timerMeta").textContent = "Progreso: 0% · 00:00 / 00:00";
     $("btnPauseTimer").classList.add("hidden");
     $("btnResumeTimer").classList.add("hidden");
     $("btnStartTimer").classList.remove("hidden");
@@ -362,12 +364,11 @@ function updateDosisCalc() {
 // ========================== QR SCAN ==========================
 let scanStream = null, scanDetector = null, scanTarget = "recir";
 
-$("btnScanQR")?.addEventListener("click", () => { scanTarget = "recir"; openQRModal();
+$("btnScanQR")?.addEventListener("click", () => { scanTarget = "recir"; openQRModal(); });
 $("btnScanQRAnalisis")?.addEventListener("click", () => { scanTarget = "analisis"; openQRModal(); });
 $("btnScanQRMedidas")?.addEventListener("click", () => { scanTarget = "medidas"; openQRModal(); });
 $("btnScanQRPurga")?.addEventListener("click", () => { scanTarget = "purga"; openQRModal(); });
 $("btnScanIncQR")?.addEventListener("click", () => { scanTarget = "incidencias"; openQRModal(); });
- });
 $("btnCloseQR")?.addEventListener("click", closeQRModal);
 $("btnQRManual")?.addEventListener("click", () => {
   const c = normalizeCode($("qrManual").value);
@@ -429,30 +430,67 @@ let recirTimer = {
   code: "", minimized: false
 };
 
-// Dosis auto al cambiar litros/lejía
-$("recirLitros")?.addEventListener("input", updateDosisCalc);
-$("recirLejia")?.addEventListener("input", updateDosisCalc);
 
-$("btnAddPunto")?.addEventListener("click", async () => {
-  const code = normalizeCode($("puntoCode").value);
-  if (!code) return toast("Introduce un código de punto.", "warn");
-  if (recirTimer.running) return toast("Hay un cronómetro en marcha. Finalízalo primero.", "warn");
+let recirQueue = [];
+function renderRecirQueue() {
+  const list = $("recirQueue");
+  const badge = $("recirQueueCount");
+  if (!list || !badge) return;
+  badge.textContent = `${recirQueue.length} pendientes`;
+  badge.className = `badge ${recirQueue.length ? "badge-blue" : "badge-gray"}`;
 
-  const mins = Number($("recirMinutos").value) || 30;
-  const litros = Number($("recirLitros").value) || 60;
-  const lejia = Number($("recirLejia").value) || getPctLejia();
-  const dosis = calcDosis(litros, lejia);
+  if (!recirQueue.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🗂️</div><div class="empty-text">No hay OT pendientes.</div></div>`;
+    return;
+  }
 
-  // Iniciar cronómetro
-  recirTimer.code = code;
-  recirTimer.durationMs = mins * 60 * 1000;
+  list.innerHTML = "";
+  recirQueue.forEach((item, index) => {
+    const el = document.createElement("div");
+    el.className = "list-item";
+    el.innerHTML = `
+      <div class="list-item-left">
+        <div class="list-item-code">${escH(item.code)}</div>
+        <div class="list-item-meta">${item.mins} min · ${item.litros}L · ${item.lejia}% lejía · ${item.dosis}ml</div>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn btn-sm btn-primary" data-recir-action="start" data-idx="${index}">▶ Cronómetro</button>
+        <button class="btn btn-sm" data-recir-action="delete" data-idx="${index}">🗑</button>
+      </div>`;
+    list.appendChild(el);
+  });
+
+  list.querySelectorAll("button[data-recir-action]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.idx);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= recirQueue.length) return;
+      if (btn.dataset.recirAction === "delete") {
+        const removed = recirQueue.splice(idx, 1)[0];
+        renderRecirQueue();
+        toast(`OT ${removed.code} eliminada de pendientes`, "info", "Recirculación");
+        return;
+      }
+      if (recirTimer.running) return toast("Ya hay un cronómetro activo.", "warn");
+      startRecirFromQueue(idx);
+    });
+  });
+}
+
+function startRecirFromQueue(idx) {
+  const item = recirQueue[idx];
+  if (!item) return;
+  recirQueue.splice(idx, 1);
+  renderRecirQueue();
+
+  recirTimer.code = item.code;
+  recirTimer.durationMs = item.mins * 60 * 1000;
   recirTimer.elapsedMs = 0;
   recirTimer.startTs = performance.now();
   recirTimer.running = true;
   recirTimer.paused = false;
   recirTimer.minimized = false;
 
-  $("timerCode").textContent = code;
+  $("timerCode").textContent = item.code;
   $("timerStatus").textContent = "⏱ Activo";
   $("timerStatus").className = "badge badge-blue";
   $("sealResult").className = "hidden";
@@ -460,11 +498,41 @@ $("btnAddPunto")?.addEventListener("click", async () => {
   $("btnPauseTimer").classList.remove("hidden");
   $("btnResumeTimer").classList.add("hidden");
   $("miniTimer").classList.remove("show");
-  $("miniCode").textContent = code;
+  $("miniCode").textContent = item.code;
 
-  toast(`Cronómetro iniciado · ${code} · ${mins} min`, "ok", "Recirculación");
+  $("recirMinutos").value = item.mins;
+  $("recirLitros").value = item.litros;
+  $("recirLejia").value = item.lejia;
+  $("recirNota").value = item.nota || "";
+  updateDosisCalc();
+
+  toast(`Cronómetro iniciado · ${item.code} · ${item.mins} min`, "ok", "Recirculación");
   soundSave();
   recirTimerTick();
+}
+
+// Dosis auto al cambiar litros/lejía
+$("recirLitros")?.addEventListener("input", updateDosisCalc);
+$("recirLejia")?.addEventListener("input", updateDosisCalc);
+
+$("btnAddPunto")?.addEventListener("click", async () => {
+  const code = normalizeCode($("puntoCode").value);
+  if (!code) return toast("Introduce un código de punto.", "warn");
+
+  const mins = Number($("recirMinutos").value) || 30;
+  const litros = Number($("recirLitros").value) || 60;
+  const lejia = Number($("recirLejia").value) || getPctLejia();
+  const dosis = calcDosis(litros, lejia);
+  const nota = $("recirNota")?.value?.trim() || "";
+
+  recirQueue.push({ code, mins, litros, lejia, dosis, nota });
+  renderRecirQueue();
+
+  toast(`OT ${code} añadida a pendientes ✅`, "ok", "Recirculación");
+  soundSave();
+  $("puntoCode").value = "";
+
+  if (!recirTimer.running) startRecirFromQueue(0);
 });
 
 $("btnStartTimer")?.addEventListener("click", () => {
@@ -502,7 +570,7 @@ function recirTimerTick() {
   const elapsed = performance.now() - recirTimer.startTs;
   recirTimer.elapsedMs = elapsed;
   const left = Math.max(0, recirTimer.durationMs - elapsed);
-  const pct = Math.min(1, elapsed / recirTimer.durationMs);
+  const pct = recirTimer.durationMs > 0 ? Math.min(1, elapsed / recirTimer.durationMs) : 1;
 
   $("timerDisplay").textContent = fmtTime(left);
   $("tankWater").style.height = `${Math.round(pct*100)}%`;
@@ -510,6 +578,7 @@ function recirTimerTick() {
   $("tankTime").textContent = fmtTime(left);
   $("timerProgress").style.width = `${Math.round(pct*100)}%`;
   $("miniLeft").textContent = fmtTime(left);
+  $("timerMeta").textContent = `Progreso: ${Math.round(pct*100)}% · ${fmtTime(elapsed)} / ${fmtTime(recirTimer.durationMs)}`;
 
   if (left <= 0) {
     // ¡COMPLETADO!
@@ -582,6 +651,7 @@ async function finishRecir(result, fromAlarm = false) {
   $("tankWater").style.height = "0%";
   $("tankPct").textContent = "0%";
   $("timerProgress").style.width = "0%";
+  $("timerMeta").textContent = "Progreso: 0% · 00:00 / 00:00";
   $("puntoCode").value = ""; $("recirNota").value = "";
 
   const seal = $("sealResult");
@@ -676,6 +746,7 @@ async function resetAllDataUI() {
     $("tankWater").style.height = "0%";
     $("tankPct").textContent = "0%";
     $("timerProgress").style.width = "0%";
+  $("timerMeta").textContent = "Progreso: 0% · 00:00 / 00:00";
     $("btnPauseTimer").classList.add("hidden");
     $("btnResumeTimer").classList.add("hidden");
     $("btnStartTimer").classList.remove("hidden");
@@ -893,10 +964,11 @@ $("btnSaveMedida")?.addEventListener("click", async () => {
   const turb = parseFloat($("mTurb").value) || null;
   const cond = parseFloat($("mCond").value) || null;
   const nota = $("mNota").value.trim();
+  const tipo = $("medidaTipo")?.value || "ACS";
 
-  await dbAddMedida({ tech: getTech(), date: fecha, ts: Date.now(), codigo, ph, temp, cloroL, cloroT, turb, cond, nota });
+  await dbAddMedida({ tech: getTech(), date: fecha, ts: Date.now(), codigo, tipo, ph, temp, cloroL, cloroT, turb, cond, nota });
 
-  soundOK(); toast(`Medida de ${codigo} guardada ✅`, "ok", "Medidas");
+  soundOK(); toast(`Medida de ${codigo} (${tipo}) guardada ✅`, "ok", "Medidas");
   [$("mPH"),$("mTemp"),$("mCloroL"),$("mCloroT"),$("mTurb"),$("mCond"),$("mNota")].forEach(el=>{if(el)el.value="";});
   checkRangos(ph, temp, cloroL, cloroT, turb);
   await refreshMedidasList();
@@ -939,7 +1011,7 @@ async function refreshMedidasList() {
 
     el.innerHTML = `
       <div class="list-item-left">
-        <div class="list-item-code">${escH(it.codigo)}</div>
+        <div class="list-item-code">${escH(it.codigo)} <span class="small muted">${it.tipo || "ACS"}</span></div>
         <div class="list-item-meta">${hr}${it.ph?` · pH ${it.ph}`:""}${it.temp?` · ${it.temp}°C`:""}${it.cloroL?` · Cl.L ${it.cloroL}`:""}${it.cloroT?` · Cl.T ${it.cloroT}`:""}${it.turb?` · ${it.turb}NTU`:""}${it.nota?` · ${escH(it.nota.slice(0,30))}`:""}</div>
       </div>
       <div class="list-item-actions">${alertBadge}</div>`;
@@ -953,7 +1025,7 @@ $("btnExportMedidas")?.addEventListener("click", async () => {
   if (!items.length) return toast("Sin medidas para exportar.", "warn");
   exportListToExcel(items.map(it => ({
     Fecha: it.date, Hora: new Date(it.ts).toLocaleTimeString(), Tecnico: it.tech,
-    Punto: it.codigo, pH: it.ph??"", Temp_C: it.temp??"", CloroLibre: it.cloroL??"",
+    Punto: it.codigo, Tipo: it.tipo||"ACS", pH: it.ph??"", Temp_C: it.temp??"", CloroLibre: it.cloroL??"",
     CloroTotal: it.cloroT??"", Turbidez: it.turb??"", Conductividad: it.cond??"", Nota: it.nota||""
   })), `medidas_${tech}.xls`);
 });
@@ -976,7 +1048,7 @@ window.selectTipoPurga = function(tipo) {
 };
 
 $("purgaMinutos")?.addEventListener("input", () => {
-  const m = Number($("purgaMinutos").value) || 5;
+  const m = Number($("purgaMinutos").value) || 1;
   $("purgaDisplay").textContent = `${String(m).padStart(2,"0")}:00`;
   $("purgaProgress").style.width = "0%";
 });
@@ -986,7 +1058,7 @@ $("btnStartPurga")?.addEventListener("click", () => {
   if (!code) return toast("Introduce el código o ubicación del grifo.", "warn");
   if (purgaTimer.running) return toast("Hay una purga en marcha. Finalízala primero.", "warn");
 
-  const mins = Number($("purgaMinutos").value) || 5;
+  const mins = Number($("purgaMinutos").value) || 1;
   purgaTimer.code = code;
   purgaTimer.durationMs = mins * 60 * 1000;
   purgaTimer.elapsedMs = 0;
