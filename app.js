@@ -1608,6 +1608,54 @@ $("btnExportUbicaciones")?.addEventListener("click", exportUbicacionesExcel);
 $("qrUbCode")?.addEventListener("keydown", e => { if (e.key === "Enter") addUbicacionQR(); });
 $("qrUbName")?.addEventListener("keydown", e => { if (e.key === "Enter") addUbicacionQR(); });
 
+
+// ========================== PWA INSTALL ==========================
+let deferredInstallPrompt = null;
+
+function initPWAInstall() {
+  const btnInstall = $("btnInstallApp");
+  if (!btnInstall) return;
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone;
+
+  if (isStandalone) {
+    btnInstall.style.display = "none";
+    return;
+  }
+
+  if (isIOS) btnInstall.style.display = "inline-flex";
+
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    btnInstall.style.display = "inline-flex";
+  });
+
+  btnInstall.addEventListener("click", async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice.catch(() => {});
+      deferredInstallPrompt = null;
+      btnInstall.style.display = "none";
+      return;
+    }
+
+    if (isIOS) {
+      toast('En iPhone/iPad: pulsa Compartir y luego "Añadir a pantalla de inicio".', "warn");
+      return;
+    }
+
+    toast("La instalación no está disponible todavía. Revisa que abras la app en HTTPS o localhost.", "warn");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    btnInstall.style.display = "none";
+    toast("Aplicación instalada ✅", "ok");
+  });
+}
+
 // ========================== SERVICE WORKER ==========================
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -1618,6 +1666,7 @@ function init() {
   initNav();
   initOnline();
   initLogin();
+  initPWAInstall();
 
   // Set default dates
   if ($("analisisMes")) $("analisisMes").value = monthStr();
