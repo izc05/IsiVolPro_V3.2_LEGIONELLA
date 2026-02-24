@@ -146,22 +146,23 @@ function calcDosis(litros, pctLejia) {
 }
 
 // ========================== NAV ==========================
+function goToScreen(screen) {
+  if (!screen) return;
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-screen") === screen));
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(screen)?.classList.add("active");
+
+  if (screen === "screenRecirculacion") refreshRecirList();
+  if (screen === "screenAnalisis") refreshAnalisisList();
+  if (screen === "screenMedidas") refreshMedidasList();
+  if (screen === "screenPurga") refreshPurgaList();
+  if (screen === "screenIncidencias") refreshIncList();
+  if (screen === "screenUbicacionesQR") refreshUbicacionesQR();
+}
+
 function initNav() {
-  document.querySelectorAll(".nav-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const screen = btn.getAttribute("data-screen");
-      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-      btn.classList.add("active");
-      $(screen)?.classList.add("active");
-      // refresh
-      if (screen === "screenRecirculacion") refreshRecirList();
-      if (screen === "screenAnalisis") refreshAnalisisList();
-      if (screen === "screenMedidas") refreshMedidasList();
-      if (screen === "screenPurga") refreshPurgaList();
-      if (screen === "screenIncidencias") refreshIncList();
-      if (screen === "screenUbicacionesQR") refreshUbicacionesQR();
-    });
+  document.querySelectorAll(".nav-btn, .home-nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => goToScreen(btn.getAttribute("data-screen")));
   });
 }
 
@@ -833,8 +834,8 @@ async function finishRecirIssue() {
 $("btnMinimize")?.addEventListener("click", () => {
   if (!recirTimer.running) return;
   recirTimer.minimized = true;
-  // Ir a otra pantalla
-  document.querySelector('[data-screen="screenAnalisis"]')?.click();
+  // Ir al panel principal
+  goToScreen("screenInicio");
   $("miniTimer").classList.add("show");
   toast("Cronómetro minimizado · sigue en marcha ⏱", "info");
 });
@@ -842,7 +843,7 @@ $("btnMinimize")?.addEventListener("click", () => {
 $("miniTimerInner")?.addEventListener("click", () => {
   $("miniTimer").classList.remove("show");
   recirTimer.minimized = false;
-  document.querySelector('[data-screen="screenRecirculacion"]')?.click();
+  goToScreen("screenRecirculacion");
 });
 
 async function refreshRecirList() {
@@ -1379,7 +1380,7 @@ async function finishPurga(result, fromAlarm = false, nota = "") {
 $("btnMinimizePurga")?.addEventListener("click", () => {
   if (!purgaTimer.running) return;
   purgaTimer.minimized = true;
-  document.querySelector('[data-screen="screenRecirculacion"]')?.click();
+  goToScreen("screenInicio");
   $("miniTimerPurga").classList.add("show");
   toast("Purga minimizada · sigue en marcha ⏱", "info");
 });
@@ -1387,7 +1388,7 @@ $("btnMinimizePurga")?.addEventListener("click", () => {
 $("miniTimerPurgaInner")?.addEventListener("click", () => {
   $("miniTimerPurga").classList.remove("show");
   purgaTimer.minimized = false;
-  document.querySelector('[data-screen="screenPurga"]')?.click();
+  goToScreen("screenPurga");
 });
 
 async function refreshPurgaList() {

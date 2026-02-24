@@ -57,8 +57,29 @@
   </header>
 
   <!-- SCREENS -->
+  <!-- 0. INICIO -->
+  <section class="screen active" id="screenInicio">
+    <div class="sec-header">
+      <div class="sec-title">🏠 Panel principal</div>
+      <div class="sec-sub">Accede a todos los apartados desde un único punto.</div>
+    </div>
+
+    <div class="card card-focus">
+      <div class="card-title">Navegación rápida</div>
+      <div class="card-sub">Pantalla optimizada para móvil: botones grandes y menos saturación visual.</div>
+      <div class="home-grid">
+        <button class="home-nav-btn" data-screen="screenRecirculacion"><span>🔵</span><strong>Recirculación</strong><small>Tratamientos y cronómetro</small></button>
+        <button class="home-nav-btn" data-screen="screenAnalisis"><span>🧪</span><strong>Análisis</strong><small>Muestras mensuales</small></button>
+        <button class="home-nav-btn" data-screen="screenMedidas"><span>📊</span><strong>Medidas</strong><small>Lecturas y registro</small></button>
+        <button class="home-nav-btn" data-screen="screenPurga"><span>🚰</span><strong>Purga</strong><small>Control de grifos</small></button>
+        <button class="home-nav-btn" data-screen="screenIncidencias"><span>🛠️</span><strong>Incidencias</strong><small>Seguimiento y acciones</small></button>
+        <button class="home-nav-btn" data-screen="screenUbicacionesQR"><span>🏷️</span><strong>Ubicaciones QR</strong><small>Alta, impresión y exportación</small></button>
+      </div>
+    </div>
+  </section>
+
   <!-- 1. RECIRCULACIÓN -->
-  <section class="screen active" id="screenRecirculacion">
+  <section class="screen" id="screenRecirculacion">
     <div class="sec-header">
       <div class="sec-title">🔵 Recirculación con Cloro</div>
       <div class="sec-sub">OT diaria · Tratamiento de instalación · Cronómetro con alarma</div>
@@ -485,21 +506,13 @@
     </div>
   </section>
 <nav class="bottom-nav">
-    <button class="nav-btn active" data-screen="screenRecirculacion">
+    <button class="nav-btn active" data-screen="screenInicio">
+      <span class="nav-icon">🏠</span>Inicio
+    </button>
+    <button class="nav-btn" data-screen="screenRecirculacion">
       <span class="nav-icon">🔵</span>Recirculación
     </button>
-    <button class="nav-btn" data-screen="screenAnalisis">
-      <span class="nav-icon">🧪</span>Análisis
-    </button>
-    <button class="nav-btn" data-screen="screenMedidas">
-      <span class="nav-icon">📊</span>Medidas
-    </button>
-    <button class="nav-btn" data-screen="screenPurga">
-      <span class="nav-icon">🚰</span>Purga
-    </button>
-  
-    <button class="nav-btn" data-screen="screenIncidencias"><div class="nav-icon">🛠️</div><div>Incidencias</div></button>
-    <button class="nav-btn" data-screen="screenUbicacionesQR"><div class="nav-icon">🏷️</div><div>QR</div></button></nav>
+  </nav>
 
 </div><!-- /app-wrap -->
 
